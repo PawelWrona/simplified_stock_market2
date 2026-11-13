@@ -1,0 +1,13 @@
+*.exe
+*.test
+coverage.out
+
+.env
+.env.*
+!.env.example
+
+.vscode/
+.idea/
+
+.DS_Store
+Thumbs.db

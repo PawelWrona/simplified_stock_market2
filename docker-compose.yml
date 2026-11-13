@@ -1,0 +1,45 @@
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      REDIS_ADDR: redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: on-failure
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.stock.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.stock.entrypoints=web"
+      - "traefik.http.routers.stock.service=stock"
+      - "traefik.http.services.stock.loadbalancer.server.port=8080"
+      - "traefik.http.services.stock.loadbalancer.healthcheck.path=/stocks"
+      - "traefik.http.services.stock.loadbalancer.healthcheck.interval=5s"
+  traefik:
+    image: traefik:v3.7
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false" #traefik will handle only containers having traefik.enable=true
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "127.0.0.1:${APP_PORT:-8080}:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - api
+    restart: unless-stopped
+volumes:
+  redis-data:
